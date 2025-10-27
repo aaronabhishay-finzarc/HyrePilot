@@ -174,6 +174,18 @@ export default function ResultsTable({
     [candidateStatuses, onViewDetails]
   );
 
+  // Sync row selection with selectedCandidates from parent
+  React.useEffect(() => {
+    const newRowSelection = {};
+    resultsArray.forEach((candidate, index) => {
+      const isSelected = selectedCandidates.some(c => c.fileName === candidate.fileName);
+      if (isSelected) {
+        newRowSelection[index] = true;
+      }
+    });
+    setRowSelection(newRowSelection);
+  }, [selectedCandidates, resultsArray]);
+
   // Table instance
   const table = useReactTable({
     data: resultsArray,
@@ -187,7 +199,27 @@ export default function ResultsTable({
       pagination,
     },
     enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: (updater) => {
+      const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
+      setRowSelection(newSelection);
+      
+      // Update parent component's selectedCandidates
+      const selectedIndices = Object.keys(newSelection).filter(key => newSelection[key]);
+      const newSelectedCandidates = selectedIndices.map(index => resultsArray[parseInt(index)]);
+      
+      // Call parent's onCandidateSelect for each change
+      selectedCandidates.forEach(candidate => {
+        if (!newSelectedCandidates.some(c => c.fileName === candidate.fileName)) {
+          handleCandidateSelect(candidate); // Deselect
+        }
+      });
+      
+      newSelectedCandidates.forEach(candidate => {
+        if (!selectedCandidates.some(c => c.fileName === candidate.fileName)) {
+          handleCandidateSelect(candidate); // Select
+        }
+      });
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -431,32 +463,6 @@ export default function ResultsTable({
         </div>
       )}
 
-      {/* Action Buttons */}
-      {selectedCandidates.length > 0 && (
-        <div className="mb-6 flex items-center space-x-4">
-          <Button
-            onClick={() => {/* Handle scheduling */}}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-900"
-          >
-            <FaCalendarAlt className="mr-2" />
-            Schedule Interviews
-          </Button>
-          <Button
-            onClick={() => {/* Handle rejection emails */}}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-          >
-            <FaEnvelopeOpenText className="mr-2" />
-            Send Rejection Emails
-          </Button>
-          <Button
-            onClick={handleDeselectAll}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <FaTimesCircle className="mr-2" />
-            Clear Selection
-          </Button>
-        </div>
-      )}
 
       {/* Table */}
       {viewMode === "table" && (
